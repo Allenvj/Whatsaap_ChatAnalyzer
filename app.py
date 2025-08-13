@@ -10,6 +10,7 @@ if uploaded_file is not None:
     bytes_data = uploaded_file.getvalue()
     data = bytes_data.decode("utf-8")
     df = preprocessor.preprocess(data)
+    df = helper.add_sentiment(df)
 
 
 
@@ -122,14 +123,27 @@ if uploaded_file is not None:
 
 
         #most common words
-        most_common_df = helper.most_common_words(selected_user,df)
+        # most_common_df = helper.most_common_words(selected_user,df)
 
-        fig,ax = plt.subplots()
+        # fig,ax = plt.subplots()
 
-        ax.barh(most_common_df[0], most_common_df[1])
-        plt.xticks(rotation='vertical')
-        st.title("Most Common Words")
+        # ax.barh(most_common_df[0], most_common_df[1])
+        # plt.xticks(rotation='vertical')
+        # st.title("Most Common Words")
+        # st.pyplot(fig)
+
+
+
+        st.title("Most Common Words (Cleaned)")
+        mcw = helper.most_common_words_clean(selected_user, df)
+        fig, ax = plt.subplots()
+        ax.barh(mcw['word'], mcw['count'])
+        plt.gca().invert_yaxis()
         st.pyplot(fig)
+
+
+
+
 
         #emoji analysis
         emoji_df = helper.emoji_helper(selected_user,df)
@@ -147,6 +161,53 @@ if uploaded_file is not None:
         
 
         
+
+        # Sentiment breakdown
+        st.title("Sentiment Overview")
+        sent_counts = helper.sentiment_breakdown(selected_user, df)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.bar_chart(sent_counts)  # simple and quick
+        with col2:
+            st.write((sent_counts / sent_counts.sum() * 100).round(2).astype(str) + '%')
+
+        # Sentiment over time
+        st.title("Average Sentiment by Day")
+        sent_timeline = helper.sentiment_daily_timeline(selected_user, df)
+        fig, ax = plt.subplots()
+        ax.plot(sent_timeline['only_date'], sent_timeline['compound'])
+        plt.xticks(rotation='vertical')
+        st.pyplot(fig)
+
+
+
+        st.title("Discovered Topics (LDA)")
+        topics = helper.lda_topics(selected_user, df, n_topics=5, n_top_words=8)
+        if not topics:
+           st.info("Not enough text to extract topics.")
+        else:
+         for t in topics:
+            st.write(f"**Topic {t['topic']}:** " + ", ".join(t['terms']))
+
+
+        st.title("Conversation Dynamics")
+        col1, col2 = st.columns(2)
+        with col1:
+         st.subheader("Who starts conversations?")
+         starters = helper.conversation_starters(selected_user, df, gap_minutes=30)
+         st.bar_chart(starters)
+
+        with col2:
+          st.subheader("Median response time (seconds)")
+          rtimes = helper.median_response_time(df)
+          st.dataframe(rtimes)
+
+        summary_txt = helper.build_summary_text(selected_user, df, sent_counts, starters, rtimes)
+        st.download_button("Download Summary (.txt)", data=summary_txt, file_name="chat_summary.txt")
+
+
+
+
 
 
 
